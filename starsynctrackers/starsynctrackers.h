@@ -1,6 +1,7 @@
 #ifndef __STARSYNCTRACKERS_H
 #define __STARSYNCTRACKERS_H
 
+#include <Arduino.h>
 #include <stdint.h>
 
 
@@ -80,6 +81,13 @@ float rod_length_to_solar(float d);
  * @return rod length.
  */
 float sst_rod_length_by_steps(float current_steps);
+
+/**
+ * Gives you total steps to get to rod_length
+ * @param rod_length desired rod length
+ * @return number total steps to get to rod length if starting from initial point.
+ */
+long steps_by_rod_length(float rod_length);
 
 
 /**

@@ -1,12 +1,3 @@
-//
-// Need AccelStepper fork with AFMotor support with library 
-//   https://github.com/adafruit/AccelStepper
-// If using Adafruit v2 Motorshield requires the Adafruit_Motorshield v2 library 
-//   https://github.com/adafruit/Adafruit_Motor_Shield_V2_Library
-// if using adafruit motor shield v1 then you need v1 library
-//' https://github.com/adafruit/Adafruit-Motor-Shield-library
-
-#include <AccelStepper.h>
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
@@ -35,7 +26,7 @@ static const int STOP_ANALOG_POWER_PIN = A3; //Pins stop switch toggles power to
 static const int STOP_ANALOG_POWER_STOP_VALUE = 990; // 0 - 1023 (0 closer, 1023 farther)
 static const int STOP_BUTTON_PIN = A2;
 
-bool keep_running = true;
+boolean keep_running = true;
 float sst_rate = 1.0;
 int sst_reset_count = 0;
 SSTVARS sstvars;
@@ -107,13 +98,8 @@ void setup()
 
   pinMode(STOP_ANALOG_POWER_PIN, OUTPUT);
 
-  stepper_init();
-
-  //while(true) {
-  //  stepper_reset_lp();
-  //}
+  stepperInit();
   sst_console_init();
-
   sst_reset();
 }
 
@@ -123,41 +109,36 @@ void sst_reset()
   if (sst_debug) {
     Serial.println(F("sst_reset"));
   }
-  delay(250);
-  sst_reset_count++;
-  reset_started = false;
 
+  sst_reset_count++;
   int count = 0;
   stop_button_analog_power(true);
   delay(100);
   int buttonV = analogRead(STOP_BUTTON_PIN);
-  //buttonV=1000;
+  setSpeed(-3000);
   while (buttonV > STOP_ANALOG_POWER_STOP_VALUE)
   {
-    stepper_reset_lp();
-
+    runStepper();
     count++;
+    // When it gets closer we check more often.
     if(count > 20 || (count > 5 && buttonV < STOP_ANALOG_POWER_STOP_VALUE+50)) {
-      buttonV = analogRead(STOP_BUTTON_PIN); //TODO: Does analog read greatly slow down reset
+      buttonV = analogRead(STOP_BUTTON_PIN);
       count = 0;
     }
   }
-  stepper_reset_done();
-  Astepper1.setSpeed(0);
-  Astepper1.runSpeed();
+  setSpeed(0);
+
   stop_button_analog_power(false);
   if (sst_debug) {
     Serial.println(F("At initial position"));
   }
-  delay(250);
+  delay(1000);
   time_solar_start_ms = 0;
   time_solar_last_s = -sstvars.recalcIntervalS;
   theta_initial = atan(sstvars.d_f/sstvars.r_i);
   d_initial = sst_rod_length_by_angle(theta_initial);
   time_adjust_s = 0;
-  Astepper1.setCurrentPosition(0);
-  // Max speed a eeprom value
-  Astepper1.setMaxSpeed(10000);
+  setPosition(0);
   if (sst_debug) {
     Serial.println(F("sst_reset end"));
   }
@@ -235,8 +216,13 @@ float sst_rod_length_by_steps(float current_steps) {
   return ((current_steps / (MICROSTEPS * sstvars.stepsPerRotation * sstvars.threadsPerInch)) + d_initial);
 }
 
+// See starsynctrackers.h
+long steps_by_rod_length(float rod_length) {
+  return (long)((rod_length - d_initial) * (MICROSTEPS * sstvars.stepsPerRotation * sstvars.threadsPerInch));
+}
+
 /**
- * Given current steps if at endLengthReset will run tracker reset.
+ * Given current steps if at endLengthReset will run tracker reset or stop.
  * @param current_steps steps
  */
 static void check_end(float current_steps) {
@@ -247,8 +233,8 @@ static void check_end(float current_steps) {
     } else {
       keep_running = false;
     }
-  } else if(d <= d_initial) {
-    keep_running=false;
+  } else if(d < d_initial) {
+    keep_running = false;
   }
 }
 
@@ -265,10 +251,6 @@ void loop()
     time_solar_start_ms = millis();
   }
   time_solar_s = ((float)(millis() - time_solar_start_ms))/1000.0 + time_adjust_s;
-  //if(loop_count > 10000) {
-    //Serial.println(time_solar_s, 8);
-   // loop_count = 0;
-  //}
   time_diff_s = time_solar_s - time_solar_last_s;
 
   if (!keep_running) {
@@ -279,24 +261,20 @@ void loop()
       if(sst_debug) {
         Serial.print(tracker_calc_steps(time_solar_s));
         Serial.print(",");
-        Serial.println(sstvars.dir*Astepper1.currentPosition());
+        Serial.println(getPosition());
       }
       steps_wanted = tracker_calc_steps(time_solar_s + RECALC_INTERVAL_S);
-      spd = (steps_wanted - sstvars.dir*Astepper1.currentPosition())/(RECALC_INTERVAL_S);
-      if(spd > 500) {
-        spd = 500;
+      spd = (steps_wanted - getPosition())/(RECALC_INTERVAL_S);
+      if(spd > 3000) {
+        spd = 3000;
       }
-      Astepper1.setSpeed(sstvars.dir*spd);
+      setSpeed(spd);
       if(sst_debug) {
         Serial.println(spd);
       }
     }
-    Astepper1.runSpeed();
-//    int i = 0;
-//    for(i = 0; i < 66; i++) {
- //     delayMicroseconds(75);
-  //  }
-    check_end(sstvars.dir*Astepper1.currentPosition());
+    runStepper();
+    check_end(getPosition());
   }
   sst_console_read_serial();
 }
