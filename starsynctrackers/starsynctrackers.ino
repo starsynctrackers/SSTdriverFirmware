@@ -7,11 +7,11 @@
 #include "sst_console.h"
 #include "stepper_drivers.h"
 
-const char* sstversion = "v1.1.0";
+const char* sstversion = "v1.1.1";
 
 
 // Default constant EEPROM values
-static const uint16_t EEPROM_MAGIC = 0x0102;
+static const uint16_t EEPROM_MAGIC = 0x0103;
 static const float STEPS_PER_ROTATION = 200.0; // Steps per rotation, just steps not microsteps.
 static const float THREADS_PER_INCH = 20;  // Threads per inch or unit of measurement
 static const float R_I = 7.3975;     // Distance from plate pivot to rod when rod is perp from plate // Russ: 7.28
@@ -21,6 +21,7 @@ static const float RECALC_INTERVAL_S = 15; // Time in seconds between recalculat
 static const float END_LENGTH_RESET = 6.500; // Length to travel before reseting.
 static const uint8_t RESET_AT_END = 0;
 static const float DIRECTION = 1.0; // 1 forward is forward; -1 + is forward is backward
+static const float RESET_MOVE = -1;
 
 static const int STOP_ANALOG_POWER_PIN = A3; //Pins stop switch toggles power to proximity switch.
 static const int STOP_ANALOG_POWER_STOP_VALUE = 990; // 0 - 1023 (0 closer, 1023 farther)
@@ -72,6 +73,7 @@ static void sst_eeprom_init() {
     sstvars.recalcIntervalS = RECALC_INTERVAL_S;
     sstvars.endLengthReset = END_LENGTH_RESET;
     sstvars.resetAtEnd = RESET_AT_END;
+    sstvars.resetMove = RESET_MOVE;
     sstvars.dir = DIRECTION;
     sst_save_sstvars();
   } else {
@@ -139,6 +141,11 @@ void sst_reset()
   d_initial = sst_rod_length_by_angle(theta_initial);
   time_adjust_s = 0;
   setPosition(0);
+  if(sstvars.resetMove > d_initial) {
+    //TODO: Why is loop needed? Also because of loop a serial command can go before sst_mv, fix.
+    loop();
+    sst_mv(sstvars.resetMove);
+  }
   if (sst_debug) {
     Serial.println(F("sst_reset end"));
   }

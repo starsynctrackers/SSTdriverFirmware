@@ -13,5 +13,6 @@ void sst_console_init(void);
  * buffer. Processes command if valid.
  */
 void sst_console_read_serial(void);
+void sst_mv(double cl);
 
 #endif

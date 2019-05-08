@@ -35,40 +35,10 @@ void sst_console_continue() {
   Serial.print(F("$ "));
 }
 
-void sst_console_mv() {
-  char* argL;
-  double l;
-  double cl;
-  char* argUnit;
-  char* argRate;
+void sst_mv(double cl) {
   long wanted_steps;
-  float speed;
   float last_speed;
-  argL = sSSTCmd.next();
-  argUnit = sSSTCmd.next();
-
-  if (argL == NULL) {
-    Serial.println(F("ERROR: Missing length to move."));
-    return;
-  }
-  //TODO: See what max and min are.
-  l = atof(argL);
-  if (argUnit != NULL && strcmp(argUnit, "inches") != 0 && strcmp(argUnit, "mm") != 0) {
-    Serial.println(F("ERROR: Invalid move unit"));
-  } else {
-    argUnit = "inches";
-  }
-
-  cl = l;
-  if (strcmp(argUnit, "mm") == 0) {
-    // Covert mm to inches
-    cl = l * 0.0393701;
-  }
-
-  Serial.print(F("Moving to "));
-  Serial.print(l);
-  Serial.print(" ");
-  Serial.println(argUnit);
+  float speed;
 
   wanted_steps = steps_by_rod_length(cl);
   if (wanted_steps < 0) {
@@ -100,6 +70,42 @@ void sst_console_mv() {
   
   time_adjust_s = rod_length_to_solar(cl) - ((float)(millis() - time_solar_start_ms))/1000.0;
   time_solar_last_s = -9999;
+  
+}
+
+void sst_console_mv() {
+  char* argL;
+  double l;
+  double cl;
+  char* argUnit;
+  char* argRate;
+  argL = sSSTCmd.next();
+  argUnit = sSSTCmd.next();
+
+  if (argL == NULL) {
+    Serial.println(F("ERROR: Missing length to move."));
+    return;
+  }
+  //TODO: See what max and min are.
+  l = atof(argL);
+  if (argUnit != NULL && strcmp(argUnit, "inches") != 0 && strcmp(argUnit, "mm") != 0) {
+    Serial.println(F("ERROR: Invalid move unit"));
+  } else {
+    argUnit = "inches";
+  }
+
+  cl = l;
+  if (strcmp(argUnit, "mm") == 0) {
+    // Covert mm to inches
+    cl = l * 0.0393701;
+  }
+
+  Serial.print(F("Moving to "));
+  Serial.print(l);
+  Serial.print(" ");
+  Serial.println(argUnit);
+
+  sst_mv(cl);
   
   Serial.print("$ ");
 }
@@ -183,6 +189,8 @@ void sst_console_set_var() {
     sstvars.endLengthReset = value;
   } else if(strcmp_P(argVarName, PSTR("resetAtEnd")) == 0) {
     sstvars.resetAtEnd = ivalue;
+  } else if(strcmp_P(argVarName, PSTR("resetMove")) == 0) {
+    sstvars.resetMove = value;
   } else if(strcmp_P(argVarName, PSTR("dir")) == 0) {
     sstvars.dir = value;
   } else {
@@ -223,6 +231,8 @@ void sst_console_status() {
   Serial.println(sstvars.endLengthReset);
   Serial.print(F(" resetAtEnd="));
   Serial.println(sstvars.resetAtEnd);
+  Serial.print(F(" resetMove="));
+  Serial.println(sstvars.resetMove);
   Serial.print(F(" dir="));
   Serial.println(sstvars.dir);
   Serial.println(F("Runtime Status:"));

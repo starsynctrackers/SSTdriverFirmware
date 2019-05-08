@@ -17,6 +17,7 @@ struct SSTVARS {
   float recalcIntervalS;
   float endLengthReset;
   uint8_t resetAtEnd;
+  float resetMove;
   float dir;
 };
 
