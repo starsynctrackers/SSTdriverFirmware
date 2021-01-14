@@ -118,12 +118,7 @@ void sst_console_set_rate() {
     Serial.println(F("ERROR: Invalid argument given to 'set_rate'"));
   } else {
     rate = atof(arg);
-    sst_rate = rate;
-    time_adjust_s = steps_to_time_solar(getPosition()) - ((float)(millis() - time_solar_start_ms))/1000.0;
-    time_solar_last_s = -9999;
-    if(sst_debug) {
-      Serial.println(time_adjust_s);
-    }
+    sst_set_rate(rate);
 
     Serial.print(F("Rate set to "));
     Serial.println(rate); 
@@ -181,8 +176,8 @@ void sst_console_set_var() {
     sstvars.r_i = value;
   } else if(strcmp_P(argVarName, PSTR("d_s")) == 0) {
     sstvars.d_s = value;
-  } else if(strcmp_P(argVarName, PSTR("d_f")) == 0) {
-    sstvars.d_f = value;
+  } else if(strcmp_P(argVarName, PSTR("l_r")) == 0) {
+    sstvars.l_r = value;
   } else if(strcmp_P(argVarName, PSTR("recalcIntervalS")) == 0) {
     sstvars.recalcIntervalS = value;
   } else if(strcmp_P(argVarName, PSTR("endLengthReset")) == 0) {
@@ -193,6 +188,24 @@ void sst_console_set_var() {
     sstvars.resetMove = value;
   } else if(strcmp_P(argVarName, PSTR("dir")) == 0) {
     sstvars.dir = value;
+  } else if(strcmp_P(argVarName, PSTR("autoguide")) == 0) {
+    sstvars.autoguide = ivalue;
+  } else if(strcmp_P(argVarName, PSTR("guideRate")) == 0) {
+    sstvars.guideRate = value;
+  } else if(strcmp_P(argVarName, PSTR("calStepSize")) == 0) {
+    sstvars.calStepSize = value;
+  } else if(strcmp_P(argVarName, PSTR("calValue")) == 0) {
+    if (ivalue >= MAX_CALIBRATE_SIZE) {
+      Serial.println(F("ERROR: invalid index for: set_var calValue [index] [value]"));
+      return;      
+    }
+    argValue = sSSTCmd.next();
+    if (argValue == NULL) {
+      Serial.println(F("ERROR: Missing [value2] argument in set_Var calValue."));
+      return;
+    }
+    value = atof(argValue);
+    sstvars.calibrate[ivalue] = value;
   } else {
     updated = false;
     Serial.print("ERROR: Invalid variable name '");
@@ -212,29 +225,44 @@ void sst_console_set_var() {
 void sst_console_status() {
   float theta, t;
   float l;
+  uint8_t i;
 
   Serial.println();
   Serial.println(F("EEPROM Values:"));
   Serial.print(F(" stepsPerRotation="));
-  Serial.println(sstvars.stepsPerRotation);
+  Serial.println(sstvars.stepsPerRotation, 5);
   Serial.print(F(" threadsPerInch="));
-  Serial.println(sstvars.threadsPerInch);
+  Serial.println(sstvars.threadsPerInch, 5);
   Serial.print(F(" r_i="));
-  Serial.println(sstvars.r_i);
+  Serial.println(sstvars.r_i, 5);
   Serial.print(F(" d_s="));
-  Serial.println(sstvars.d_s);
-  Serial.print(F(" d_f="));
-  Serial.println(sstvars.d_f);
+  Serial.println(sstvars.d_s, 5);
+  Serial.print(F(" l_r="));
+  Serial.println(sstvars.l_r, 5);
   Serial.print(F(" recalcIntervalS="));
-  Serial.println(sstvars.recalcIntervalS);
+  Serial.println(sstvars.recalcIntervalS, 5);
   Serial.print(F(" endLengthReset="));
-  Serial.println(sstvars.endLengthReset);
+  Serial.println(sstvars.endLengthReset, 5);
   Serial.print(F(" resetAtEnd="));
   Serial.println(sstvars.resetAtEnd);
   Serial.print(F(" resetMove="));
-  Serial.println(sstvars.resetMove);
+  Serial.println(sstvars.resetMove, 5);
   Serial.print(F(" dir="));
   Serial.println(sstvars.dir);
+  Serial.print(F(" autoguide="));
+  Serial.println(sstvars.autoguide);
+  Serial.print(F(" guideRate="));
+  Serial.println(sstvars.guideRate, 5);
+  Serial.print(F(" calStepSize="));
+  Serial.println(sstvars.calStepSize, 5);
+  Serial.println(F(" calValue [index] = "));
+  for(i = 0; i < MAX_CALIBRATE_SIZE; i++) {
+    Serial.print(F("  "));
+    Serial.print(i);
+    Serial.print(F(": "));
+    Serial.println(sstvars.calibrate[i], 5);
+  }
+
   Serial.println(F("Runtime Status:"));
   if (sst_debug) {
     Serial.println(F(" Debug: Enabled"));
@@ -266,6 +294,15 @@ void sst_console_status() {
   Serial.print(F("$ "));
 }
 
+void sst_console_qlr() {
+  float l = sst_rod_length_by_steps(getPosition());
+  Serial.print(F(" Length: "));
+  Serial.println(l, 5);
+
+  Serial.print(F("$ "));
+
+}
+
 void sst_console_help(const char* cmd) {
   Serial.println(F("SST Commands:"));
   Serial.println(F(" reset                            Reset the tracker to starting position."));
@@ -276,6 +313,7 @@ void sst_console_help(const char* cmd) {
   Serial.println(F(" set_debug 0|1                    0 debug output disable, 1 debug output enabled."));
   Serial.println(F(" set_var [variable_name] [value]  Sets eeprom calibration variable."));
   Serial.println(F(" status                           Shows tracker status and eeprom variable values."));
+  Serial.println(F(" qlr                              Quick calculated rod length."));
   Serial.println("");
   Serial.print(F("$ "));
 }
@@ -289,6 +327,7 @@ void sst_console_init() {
   sSSTCmd.addCommand("set_debug", sst_console_set_debug);
   sSSTCmd.addCommand("set_var", sst_console_set_var);
   sSSTCmd.addCommand("status", sst_console_status);
+  sSSTCmd.addCommand("qlr", sst_console_qlr);
   sSSTCmd.setDefaultHandler(sst_console_help); // Help   
   Serial.print(F("$ "));
 }
@@ -296,4 +335,3 @@ void sst_console_init() {
 void sst_console_read_serial() {
   sSSTCmd.readSerial();
 }
-

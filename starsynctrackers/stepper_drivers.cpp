@@ -168,7 +168,7 @@ void runStepper() {
   //Serial.println(SClock);
   //Serial.println(SCounts);
   //Serial.println(count);
-  if(abs(SSpeed) > 150.0) {
+  if(abs(SSpeed) > 250.0) {
     if (count < -MICROSTEPS) {
         stepper_backwardstep_fast();
         SCounts -= MICROSTEPS;

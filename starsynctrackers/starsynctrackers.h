@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 
+#define MAX_CALIBRATE_SIZE 20
 
 /** 
  * Structure that holds EEPROM values. The default values are in starsynctrackers.ino
@@ -13,12 +14,16 @@ struct SSTVARS {
   float threadsPerInch;
   float r_i;
   float d_s;
-  float d_f;
+  float l_r;
   float recalcIntervalS;
   float endLengthReset;
   uint8_t resetAtEnd;
   float resetMove;
   float dir;
+  uint8_t autoguide;
+  float guideRate;
+  float calStepSize;
+  float calibrate[MAX_CALIBRATE_SIZE];
 };
 
 /**
@@ -61,6 +66,25 @@ float sst_theta(float time_solar_s);
  * @return Rod length.
  */
 float sst_rod_length_by_angle(float theta);
+
+/**
+ * Calculates theta based on rod length.
+ * @params l rod length
+ * @returns theta angle of tracker if rod is length l
+ */
+static float sst_angle_by_rod_length(float l);
+
+/**
+ * Set rate multiplier.
+ * @param rate multiplier rate
+ */
+void sst_set_rate(float rate);
+
+/**
+ * Get multiplier rate.
+ * @return The multiplier rate value;
+ */
+float sst_get_rate();
 
 /**
  * Inverse of tracker_calc_steps, gives you time given tracker steps.
